@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Reddit AI Digest
 
 FastAPI backend that fetches top Reddit finance discussions, filters low-value posts with OpenAI, ranks the best posts per subreddit, performs a final global ranking, prints the result to console, and emails the final top 3.
@@ -286,3 +287,6 @@ If you see a Gmail error like `Application-specific password required`, you need
 ## License
 
 No license has been declared yet.
+=======
+# gtm-tooling
+>>>>>>> 8fa7e1863c94317a45aa18afca7170bda62b1434
