@@ -1,7 +1,12 @@
+import logging
 import smtplib
+import ssl
+import time
 from email.mime.text import MIMEText
 
 from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 def send_results_email(body: str) -> None:
@@ -21,9 +26,25 @@ def send_results_email(body: str) -> None:
     message["From"] = settings.EMAIL_USER
     message["To"] = ", ".join(receivers)
 
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(settings.EMAIL_USER, settings.EMAIL_PASS)
-        server.sendmail(settings.EMAIL_USER, receivers, message.as_string())
+    ssl_context = ssl.create_default_context()
+    last_error: Exception | None = None
+
+    for attempt in range(3):
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30, context=ssl_context) as server:
+                server.login(settings.EMAIL_USER, settings.EMAIL_PASS)
+                server.sendmail(settings.EMAIL_USER, receivers, message.as_string())
+            logger.info("Email sent successfully to %s.", ", ".join(receivers))
+            return
+        except (smtplib.SMTPException, OSError, TimeoutError) as error:
+            last_error = error
+            logger.warning(
+                "Email send attempt %s failed: %s: %s",
+                attempt + 1,
+                type(error).__name__,
+                error,
+            )
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+
+    raise RuntimeError(f"Failed to send email after retries: {last_error}") from last_error

@@ -1,15 +1,19 @@
 import asyncio
 import logging
+
 from app.config.settings import settings
 from app.models.post_models import RawPost
+from app.services.reddit.fetch_comments import fetch_comments_for_post
 from app.services.reddit.reddit_client import reddit_get
 
 logger = logging.getLogger(__name__)
 
-def _process_post(item: dict, subreddit: str) -> RawPost:
+async def _process_post(item: dict, subreddit: str) -> RawPost:
     post_data = item.get("data", {})
     post_id = post_data.get("id", "")
     permalink = post_data.get("permalink", "")
+
+    comments = await fetch_comments_for_post(post_id, subreddit)
 
     return RawPost(
         post_id=post_id,
@@ -18,7 +22,7 @@ def _process_post(item: dict, subreddit: str) -> RawPost:
         score=post_data.get("score", 0),
         url=f"https://www.reddit.com{permalink}",
         subreddit=subreddit,
-        comments=[]  # Comments skipped — focusing on post title/body for Stage 1
+        comments=comments,
     )
 
 async def fetch_subreddit_posts(subreddit: str) -> list[RawPost]:
@@ -37,8 +41,8 @@ async def fetch_subreddit_posts(subreddit: str) -> list[RawPost]:
 
     logger.info(f"Fetched {len(children)} posts from r/{subreddit}.")
 
-    # Process posts synchronously (no comment fetching needed)
-    return [_process_post(item, subreddit) for item in children]
+    tasks = [_process_post(item, subreddit) for item in children]
+    return await asyncio.gather(*tasks)
 
 async def fetch_top_posts() -> list[RawPost]:
     """

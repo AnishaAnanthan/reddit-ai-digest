@@ -73,7 +73,7 @@ async def get_filtered_posts():
         return {"status": "error", "message": "No posts fetched from Reddit."}
 
     print(f">>> /filtered-posts: Sending {len(raw_posts)} posts to AI filter...", flush=True)
-    filtered_posts = await filter_posts(raw_posts)
+    filtered_posts, diagnostics = await filter_posts(raw_posts, return_diagnostics=True)
     t2 = time.time()
     print(f">>> /filtered-posts: AI filter done in {t2-t1:.1f}s — kept {len(filtered_posts)} posts", flush=True)
     print(f">>> /filtered-posts: Total time: {t2-t0:.1f}s", flush=True)
@@ -81,6 +81,7 @@ async def get_filtered_posts():
     return {
         "status": "success",
         "count": len(filtered_posts),
+        "stage1_diagnostics": diagnostics,
         "data": [post.model_dump() for post in filtered_posts]
     }
 
@@ -120,8 +121,13 @@ async def run_stage1_filter():
     if not raw_posts:
         return {"status": "error", "message": "No posts fetched from Reddit."}
         
-    filtered_posts = await filter_posts(raw_posts)
-    return {"status": "success", "count": len(filtered_posts), "data": filtered_posts}
+    filtered_posts, diagnostics = await filter_posts(raw_posts, return_diagnostics=True)
+    return {
+        "status": "success",
+        "count": len(filtered_posts),
+        "stage1_diagnostics": diagnostics,
+        "data": [post.model_dump() for post in filtered_posts]
+    }
 
 
 @app.post("/run-ranking-pipeline")

@@ -42,7 +42,7 @@ async def main():
     # --- Stage 2: AI Filter ---
     print(f"\n[2/2] Running AI filter on {len(raw_posts)} posts...")
     t2 = time.time()
-    filtered = await filter_posts(raw_posts)
+    filtered, diagnostics = await filter_posts(raw_posts, return_diagnostics=True)
     t3 = time.time()
     print(f"      [OK] AI filter done in {t3-t2:.1f}s - kept {len(filtered)} / {len(raw_posts)} posts")
 
@@ -52,9 +52,20 @@ async def main():
     print(f"  Total time: {t3-t0:.1f}s  (fetch: {t1-t0:.1f}s | AI: {t3-t2:.1f}s)")
     print("="*60)
 
+    print("\n  DIAGNOSTICS:")
+    print(f"  Total raw posts: {diagnostics.get('total_raw_posts', 0)}")
+    print(f"  Posts evaluated: {diagnostics.get('stage1_evaluated_posts', 0)}")
+    print(f"  Tier A (post+comments): {diagnostics.get('post_plus_comment_kept', 0)}")
+    print(f"  Tier B (post-only): {diagnostics.get('post_only_fallback_kept', 0)}")
+    print(f"  Dropped (comment noise): {diagnostics.get('dropped_due_to_comment_noise', 0)}")
+    print(f"  Discussion complete: {diagnostics.get('discussion_complete_count', 0)}")
+    print(f"  Discussion incomplete: {diagnostics.get('discussion_incomplete_count', 0)}")
+
     for i, post in enumerate(filtered, 1):
         print(f"\n  [{i}] [{post.subreddit}] {post.title[:70]}")
-        print(f"       category={post.category}  score={post.score}  involvement={post.involvement_needed}")
+        print(f"       category={post.category}  score={post.score}")
+        print(f"       is_valuable_post={post.is_valuable_post}  is_valuable_comment={post.is_valuable_comment}")
+        print(f"       discussion_complete={post.discussion_complete}")
         print(f"       reason: {post.reason[:100]}")
         print(f"       url: {post.url}")
 

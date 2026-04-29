@@ -23,7 +23,8 @@ async def run_full_ranking_pipeline():
         return {"status": "error", "message": "No posts fetched from Reddit."}
 
     # 2) Stage 1 validation/filtering
-    filtered_posts = await filter_posts(raw_posts)
+    stage1_result = await filter_posts(raw_posts, return_diagnostics=True)
+    filtered_posts, stage1_diagnostics = stage1_result
     
     stage1_by_subreddit = {subreddit: 0 for subreddit in settings.SUBREDDITS}
     for post in filtered_posts:
@@ -38,6 +39,7 @@ async def run_full_ranking_pipeline():
             "message": "No posts remained after Stage 1 validation.",
             "stage1_count": 0,
             "stage1_by_subreddit": stage1_by_subreddit,
+            "stage1_diagnostics": stage1_diagnostics,
             "ranking_error_by_subreddit": {
                 subreddit: "no_stage1_posts" for subreddit in settings.SUBREDDITS
             },
@@ -71,6 +73,7 @@ async def run_full_ranking_pipeline():
             "message": "No posts available after per-subreddit ranking.",
             "stage1_count": len(filtered_posts),
             "stage1_by_subreddit": stage1_by_subreddit,
+            "stage1_diagnostics": stage1_diagnostics,
             "subreddit_rankings": subreddit_rankings,
             "ranking_error_by_subreddit": ranking_error_by_subreddit,
         }
@@ -84,6 +87,7 @@ async def run_full_ranking_pipeline():
             "message": "Global ranking failed.",
             "stage1_count": len(filtered_posts),
             "stage1_by_subreddit": stage1_by_subreddit,
+            "stage1_diagnostics": stage1_diagnostics,
             "subreddit_rankings": subreddit_rankings,
             "ranking_error_by_subreddit": ranking_error_by_subreddit,
         }
@@ -107,6 +111,7 @@ async def run_full_ranking_pipeline():
         "status": "success",
         "stage1_count": len(filtered_posts),
         "stage1_by_subreddit": stage1_by_subreddit,
+        "stage1_diagnostics": stage1_diagnostics,
         "subreddit_rankings": subreddit_rankings,
         "ranking_error_by_subreddit": ranking_error_by_subreddit,
         "merged_count": len(merged_posts),

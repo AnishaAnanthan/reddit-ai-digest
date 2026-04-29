@@ -27,6 +27,8 @@ Ranking criteria:
 2. Completeness: Is it specific and actionable?
 3. Relevance: Does it match the subreddit's core anxiety?
 4. Quality: Is the discussion substantive and honest?
+5. Comment signal: Prefer posts whose comment_summary shows useful back-and-forth or corroboration.
+6. Completeness signal: Prefer discussion_complete=true when two posts are otherwise similar.
 
 Required output schema:
 {
@@ -45,6 +47,7 @@ Rules:
 - summary must be 40 words or fewer
 - title and url must not be empty
 - Keep URL exactly as given (do not modify)
+- Use the post's reason, category, comment_summary, and discussion_complete as ranking signals
 - If unsure, still return structured output with your best ranking
 - Do not omit required fields
 

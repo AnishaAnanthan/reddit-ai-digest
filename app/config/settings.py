@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     ]
     POST_LIMIT: int = 10
     COMMENT_LIMIT: int = 5
+    STAGE1_BATCH_SIZE: int = 5
+    STAGE1_COMMENT_CHAR_LIMIT: int = 320
+    STAGE1_COMMENT_SUMMARY_CHAR_LIMIT: int = 900
+    STAGE1_TOTAL_COMMENT_CHAR_BUDGET: int = 1800
     
     # Schedule config (24-hour format HH:MM)
     PIPELINE_SCHEDULE_TIME: str = "22:05"

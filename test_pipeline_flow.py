@@ -106,7 +106,25 @@ def print_stage1_posts(posts) -> None:
             print(f"   Score: {post.score}")
             print(f"   Category: {post.category}")
             print(f"   Reason: {post.reason}")
-            print(f"   Involvement Needed: {post.involvement_needed}")
+            print(f"   Discussion Complete: {post.discussion_complete}")
+            print(f"   Is Valuable Post: {post.is_valuable_post}")
+            print(f"   Is Valuable Comment: {post.is_valuable_comment}")
+
+
+def print_stage1_diagnostics(diagnostics: dict) -> None:
+    print("\n====================")
+    print("STAGE 1 - DIAGNOSTICS")
+    print("====================")
+    print(f"Total raw posts: {diagnostics.get('total_raw_posts', 0)}")
+    print(f"Posts evaluated: {diagnostics.get('stage1_evaluated_posts', 0)}")
+    print(f"Tier A (post + comments valuable): {diagnostics.get('post_plus_comment_kept', 0)}")
+    print(f"Tier B (post-only valuable): {diagnostics.get('post_only_fallback_kept', 0)}")
+    print(f"Dropped (comment noise): {diagnostics.get('dropped_due_to_comment_noise', 0)}")
+    print(f"Discussion complete: {diagnostics.get('discussion_complete_count', 0)}")
+    print(f"Discussion incomplete: {diagnostics.get('discussion_incomplete_count', 0)}")
+    print(f"\nBy subreddit:")
+    for subreddit, count in diagnostics.get('stage1_by_subreddit', {}).items():
+        print(f"  r/{subreddit}: {count} posts kept")
 
 
 def print_stage2_rankings(rankings: dict[str, list[RankedPost]]) -> None:
@@ -139,8 +157,9 @@ async def main() -> None:
         print("\nNo raw posts fetched. Stopping.")
         return
 
-    stage1_posts = await filter_posts(raw_posts)
+    stage1_posts, stage1_diagnostics = await filter_posts(raw_posts, return_diagnostics=True)
     print_stage1_posts(stage1_posts)
+    print_stage1_diagnostics(stage1_diagnostics)
 
     if not stage1_posts:
         print("\nNo posts survived Stage 1. Stopping.")

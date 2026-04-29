@@ -29,6 +29,10 @@ async def rank_subreddit_posts(subreddit: str, posts: list[Stage1Post]) -> list[
                 "url": post.url,
                 "reason": post.reason,
                 "category": post.category,
+                "is_valuable_post": post.is_valuable_post,
+                "is_valuable_comment": post.is_valuable_comment,
+                "discussion_complete": post.discussion_complete,
+                "comment_summary": post.comment_summary,
             }
         )
 
