@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from app.services.reddit.fetch_posts import fetch_top_posts
+from app.services.reddit.reddit_client import reddit_get
 from app.services.ai.stage1_filter import filter_posts
 from app.services.ai.stage2_subreddit_ranker import rank_subreddit_posts
 from app.services.ai.stage3_global_ranker import rank_global_posts
@@ -89,26 +90,36 @@ async def get_filtered_posts():
 async def get_reddit_raw_json():
     """
     Fetches the EXACT raw JSON from Reddit's API (unparsed) for all configured subreddits.
+    Uses our centralized reddit_get utility to avoid 403 blocks.
     """
     all_raw_data = {}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "application/json"
-    }
     
-    async with httpx.AsyncClient() as client:
-        for subreddit in settings.SUBREDDITS:
-            url = f"https://www.reddit.com/r/{subreddit}/top.json?limit={settings.POST_LIMIT}&t=day"
-            try:
-                response = await client.get(url, headers=headers, follow_redirects=True)
-                if response.status_code == 200:
-                    all_raw_data[subreddit] = response.json()
-                else:
-                    all_raw_data[subreddit] = {"error": f"Status code {response.status_code}"}
-            except Exception as e:
-                all_raw_data[subreddit] = {"error": str(e)}
+    # Run requests concurrently for efficiency
+    tasks = []
+    for subreddit in settings.SUBREDDITS:
+        path = f"/r/{subreddit}/top.json"
+        params = {"limit": settings.POST_LIMIT, "t": "day"}
+        tasks.append(reddit_get(path, params=params))
+    
+    results = await asyncio.gather(*tasks)
+    
+    total_posts = 0
+    for subreddit, result in zip(settings.SUBREDDITS, results):
+        if not result:
+            all_raw_data[subreddit] = {"error": "Failed to fetch data (likely blocked or rate limited)"}
+        else:
+            all_raw_data[subreddit] = result
+            # Count the number of children (posts) in this subreddit
+            post_count = len(result.get("data", {}).get("children", []))
+            total_posts += post_count
+            logger.info(f"Fetched {post_count} raw posts from r/{subreddit}")
                 
-    return {"status": "success", "data": all_raw_data}
+    logger.info(f"Total raw posts fetched across all subreddits: {total_posts}")
+    return {
+        "status": "success", 
+        "total_posts_fetched": total_posts,
+        "data": all_raw_data
+    }
 
 @app.post("/run-stage1")
 async def run_stage1_filter():
