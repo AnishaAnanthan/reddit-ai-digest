@@ -22,7 +22,7 @@ def send_results_email(body: str) -> None:
         raise ValueError("No valid email receivers found in EMAIL_RECEIVER.")
 
     message = MIMEText(body, "plain", "utf-8")
-    message["Subject"] = "Top 3 Reddit Finance Insights"
+    message["Subject"] = "Reddit AI Agent: Today's High-Importance Digest"
     message["From"] = settings.EMAIL_USER
     message["To"] = ", ".join(receivers)
 

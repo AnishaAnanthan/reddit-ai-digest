@@ -1,17 +1,14 @@
-from fastapi import FastAPI
-import httpx
-import asyncio
+from fastapi import FastAPI, Response
 import logging
 import time
+import asyncio
 from app.services.reddit.fetch_posts import fetch_top_posts
-from app.services.reddit.reddit_client import reddit_get
-from app.services.ai.stage1_filter import filter_posts
 from app.services.ai.stage2_subreddit_ranker import rank_subreddit_posts
-from app.services.ai.stage3_global_ranker import rank_global_posts
+from app.services.pipeline_service import run_full_ranking_pipeline
 from app.services.notifications.email_sender import send_results_email
 from app.utils.output_formatter import format_top_posts_text
 from app.config.settings import settings
-from app.services.pipeline_service import run_full_ranking_pipeline
+from app.models.post_models import RankedPost
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from contextlib import asynccontextmanager
 
@@ -23,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup: Initialize and start scheduler
     scheduler = AsyncIOScheduler()
-    
+
     # Parse the times from settings (format HH:MM,HH:MM,HH:MM)
     times = settings.PIPELINE_SCHEDULE_TIME.split(",")
     for t in times:
@@ -47,106 +44,117 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 app = FastAPI(
-    title="Reddit AI Digest - Stage 1",
-    description="API to fetch and filter Reddit posts.",
+    title="Reddit AI Agent v2",
+    description="Automated Reddit intelligence agent with composite importance ranking.",
     lifespan=lifespan
 )
 
-@app.get("/raw-posts")
-async def get_parsed_raw_posts():
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "time": time.time()}
+
+# --- TEST ENDPOINTS FOR EACH STEP ---
+
+@app.get("/test/fetch")
+async def test_fetch():
     """
-    Fetches the posts and returns them parsed into our standard RawPost models.
+    STEP 1: Fetching (Multi-Category + 24h Filter)
     """
     posts = await fetch_top_posts()
-    return {"status": "success", "count": len(posts), "data": posts}
-
-@app.get("/filtered-posts")
-async def get_filtered_posts():
-    """
-    Fetches top posts from all configured subreddits and runs them through
-    the Stage 1 AI filter. Returns only meaningful discussions, with Reddit
-    URLs and subreddit names included.
-    """
-    t0 = time.time()
-    print(">>> /filtered-posts: Fetching raw posts from Reddit...", flush=True)
-    raw_posts = await fetch_top_posts()
-    t1 = time.time()
-    print(f">>> /filtered-posts: Fetched {len(raw_posts)} posts in {t1-t0:.1f}s", flush=True)
-
-    if not raw_posts:
-        return {"status": "error", "message": "No posts fetched from Reddit."}
-
-    print(f">>> /filtered-posts: Sending {len(raw_posts)} posts to AI filter...", flush=True)
-    filtered_posts, diagnostics = await filter_posts(raw_posts, return_diagnostics=True)
-    t2 = time.time()
-    print(f">>> /filtered-posts: AI filter done in {t2-t1:.1f}s — kept {len(filtered_posts)} posts", flush=True)
-    print(f">>> /filtered-posts: Total time: {t2-t0:.1f}s", flush=True)
-
     return {
-        "status": "success",
-        "count": len(filtered_posts),
-        "stage1_diagnostics": diagnostics,
-        "data": [post.model_dump() for post in filtered_posts]
+        "step": "1 - Fetching",
+        "description": "Multi-category scan with 24-hour timestamp filter.",
+        "count": len(posts),
+        "data": posts
     }
 
-@app.get("/reddit-raw-json")
-async def get_reddit_raw_json():
+@app.get("/test/rank")
+async def test_rank():
     """
-    Fetches the EXACT raw JSON from Reddit's API (unparsed) for all configured subreddits.
-    Uses our centralized reddit_get utility to avoid 403 blocks.
+    STEP 2: Ranking + STEP 3: Email Notification
+    Processes ALL subreddits, ranks them, and SENDS an email.
     """
-    all_raw_data = {}
+    logger.info(">>> /test/rank: Starting full ranking test with email...")
+    raw_posts = await fetch_top_posts()
+    if not raw_posts:
+        return {"error": "No fresh posts found to rank."}
     
-    # Run requests concurrently for efficiency
-    tasks = []
+    results = {}
+    all_ranked_objects = []
+    
     for subreddit in settings.SUBREDDITS:
-        path = f"/r/{subreddit}/top.json"
-        params = {"limit": settings.POST_LIMIT, "t": "day"}
-        tasks.append(reddit_get(path, params=params))
+        subreddit_posts = [p for p in raw_posts if p.subreddit == subreddit]
+        if not subreddit_posts:
+            results[subreddit] = "No posts from last 24h"
+            continue
+            
+        ranked_list = await rank_subreddit_posts(subreddit, subreddit_posts)
+        
+        # Deduplicate AI output and convert to models
+        unique_ranked = []
+        seen_urls = set()
+        for p in ranked_list:
+            if p.url not in seen_urls:
+                all_ranked_objects.append(p)
+                unique_ranked.append(p.model_dump())
+                seen_urls.add(p.url)
+        
+        results[subreddit] = {
+            "input_count": len(subreddit_posts),
+            "ranked_count": len(unique_ranked),
+            "data": unique_ranked
+        }
     
-    results = await asyncio.gather(*tasks)
-    
-    total_posts = 0
-    for subreddit, result in zip(settings.SUBREDDITS, results):
-        if not result:
-            all_raw_data[subreddit] = {"error": "Failed to fetch data (likely blocked or rate limited)"}
-        else:
-            all_raw_data[subreddit] = result
-            # Count the number of children (posts) in this subreddit
-            post_count = len(result.get("data", {}).get("children", []))
-            total_posts += post_count
-            logger.info(f"Fetched {post_count} raw posts from r/{subreddit}")
-                
-    logger.info(f"Total raw posts fetched across all subreddits: {total_posts}")
+    # Send the email notification
+    email_status = "Skipped (no posts)"
+    if all_ranked_objects:
+        logger.info(f">>> /test/rank: Sending email for {len(all_ranked_objects)} posts...")
+        final_text = format_top_posts_text(all_ranked_objects)
+        try:
+            # send_results_email is a blocking function, run in thread
+            await asyncio.to_thread(send_results_email, final_text)
+            email_status = "Sent Successfully"
+        except Exception as e:
+            logger.error(f"Email failed: {e}")
+            email_status = f"Failed: {str(e)}"
+
     return {
-        "status": "success", 
-        "total_posts_fetched": total_posts,
-        "data": all_raw_data
+        "step": "2 & 3 - Ranking and Emailing",
+        "total_subreddits": len(settings.SUBREDDITS),
+        "email_status": email_status,
+        "results": results
     }
 
-@app.post("/run-stage1")
-async def run_stage1_filter():
+@app.get("/test/format")
+async def test_format():
     """
-    Fetches the raw posts and runs them through the Stage 1 AI Filter.
-    Returns only the meaningful discussions.
+    STEP 3: Formatting (Email Preview)
     """
     raw_posts = await fetch_top_posts()
-    
     if not raw_posts:
-        return {"status": "error", "message": "No posts fetched from Reddit."}
+        return Response(content="No fresh posts found to format.", media_type="text/plain")
         
-    filtered_posts, diagnostics = await filter_posts(raw_posts, return_diagnostics=True)
+    subreddit = settings.SUBREDDITS[0]
+    subreddit_posts = [p for p in raw_posts if p.subreddit == subreddit]
+    ranked = await rank_subreddit_posts(subreddit, subreddit_posts)
+    
+    formatted_text = format_top_posts_text(ranked)
+    return Response(content=formatted_text, media_type="text/plain")
+
+@app.get("/test/raw-count")
+async def test_raw_count():
+    raw_posts = await fetch_top_posts()
     return {
-        "status": "success",
-        "count": len(filtered_posts),
-        "stage1_diagnostics": diagnostics,
-        "data": [post.model_dump() for post in filtered_posts]
+        "final_valid_posts": len(raw_posts),
+        "subreddits": settings.SUBREDDITS
     }
 
+# --- FULL PIPELINE ENDPOINTS ---
 
 @app.post("/run-ranking-pipeline")
-async def run_ranking_pipeline():
-    """
-    Manually trigger the full ranking flow.
-    """
+async def run_ranking_pipeline_endpoint():
+    return await run_full_ranking_pipeline()
+
+@app.get("/todays-highlights")
+async def get_todays_highlights():
     return await run_full_ranking_pipeline()

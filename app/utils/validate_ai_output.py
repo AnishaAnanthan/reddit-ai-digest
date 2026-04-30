@@ -75,6 +75,10 @@ def validate_top_posts_output(content: str) -> list[dict[str, Any]] | None:
         title = item.get("title")
         url = item.get("url")
         summary = item.get("summary")
+        importance_score = item.get("importance_score", 0.0)
+        reasoning = item.get("reasoning", "")
+        discussion_status = item.get("discussion_status", "Incomplete")
+        
         if not isinstance(title, str) or not title.strip():
             logger.error(f"top_posts[{idx}] missing valid title.")
             return None
@@ -84,11 +88,15 @@ def validate_top_posts_output(content: str) -> list[dict[str, Any]] | None:
         if not isinstance(summary, str) or not summary.strip():
             logger.error(f"top_posts[{idx}] missing valid summary.")
             return None
+        
         cleaned.append(
             {
                 "title": title.strip(),
                 "url": url.strip(),
                 "summary": summary.strip(),
+                "importance_score": float(importance_score),
+                "reasoning": str(reasoning).strip(),
+                "discussion_status": str(discussion_status).strip(),
             }
         )
 

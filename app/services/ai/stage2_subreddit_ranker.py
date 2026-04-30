@@ -2,16 +2,15 @@ import json
 import logging
 from pathlib import Path
 
-from app.models.post_models import RankedPost, Stage1Post
+from app.models.post_models import RankedPost, RawPost
 from app.services.ai.ai_client import ai_client
 from app.utils.validate_ai_output import validate_top_posts_output
 
 logger = logging.getLogger(__name__)
 
-
-async def rank_subreddit_posts(subreddit: str, posts: list[Stage1Post]) -> list[RankedPost]:
+async def rank_subreddit_posts(subreddit: str, posts: list[RawPost]) -> list[RankedPost]:
     """
-    Ranks already-validated posts for a single subreddit and returns top posts.
+    Ranks fresh posts for a single subreddit using composite importance (popularity + comments).
     """
     if not posts:
         return []
@@ -22,17 +21,18 @@ async def rank_subreddit_posts(subreddit: str, posts: list[Stage1Post]) -> list[
 
     ai_input = []
     for post in posts:
+        # Extract top comment bodies for analysis
+        comment_texts = [c.body for c in post.comments[:5] if not c.is_deleted and not c.is_removed]
+        comment_summary = " | ".join(comment_texts) if comment_texts else "No comments yet."
+        
         ai_input.append(
             {
+                "post_id": post.post_id,
                 "title": post.title,
                 "score": post.score,
                 "url": post.url,
-                "reason": post.reason,
-                "category": post.category,
-                "is_valuable_post": post.is_valuable_post,
-                "is_valuable_comment": post.is_valuable_comment,
-                "discussion_complete": post.discussion_complete,
-                "comment_summary": post.comment_summary,
+                "content_preview": post.content[:200], # First 200 chars
+                "comment_summary": comment_summary,
             }
         )
 
@@ -44,7 +44,7 @@ async def rank_subreddit_posts(subreddit: str, posts: list[Stage1Post]) -> list[
         indent=2,
     )
 
-    logger.info(f"Running subreddit ranking for r/{subreddit} with {len(posts)} validated posts.")
+    logger.info(f"Running v2 composite ranking for r/{subreddit} with {len(posts)} posts.")
 
     max_retries = 2
     for attempt in range(max_retries):
@@ -52,8 +52,8 @@ async def rank_subreddit_posts(subreddit: str, posts: list[Stage1Post]) -> list[
         parsed = validate_top_posts_output(ai_output)
 
         if parsed is not None:
-            ranked = [RankedPost(**item) for item in parsed]
-            return ranked[:3]
+            # We no longer slice [:3] here, we return what the AI ranked as important
+            return [RankedPost(**item) for item in parsed]
 
         logger.warning(
             f"Subreddit ranking output invalid for r/{subreddit}. Attempt {attempt + 1} of {max_retries}."

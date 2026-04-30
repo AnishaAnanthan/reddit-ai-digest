@@ -19,17 +19,17 @@ class Settings(BaseSettings):
     STAGE1_COMMENT_SUMMARY_CHAR_LIMIT: int = 900
     STAGE1_TOTAL_COMMENT_CHAR_BUDGET: int = 1800
     
-    # Schedule config (24-hour format HH:MM)
-    PIPELINE_SCHEDULE_TIME: str = "22:05"
+    # Schedule config (comma-separated HH:MM)
+    PIPELINE_SCHEDULE_TIME: str = "08:00,12:00,18:00"
 
     # OpenAI config
     OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MODEL: str = "gpt-5.4-mini"
 
     # Email config
     EMAIL_USER: str = ""
     EMAIL_PASS: str = ""
-    EMAIL_RECEIVER: str = "anishaak06@gmail.com, jeevaneniyavan@gmail.com"
+    EMAIL_RECEIVER: str = "anishaak06@gmail.com, jeevaneniyavan@gmail.com,kayal@qonfido.com"
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent.parent / ".env",

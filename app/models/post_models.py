@@ -36,6 +36,7 @@ class RawPost(BaseModel):
     score: int
     url: str
     subreddit: str = ""
+    created_utc: float = 0.0
     comments: List[CommentRecord] = Field(default_factory=list)
 
     @field_validator("comments", mode="before")
@@ -79,3 +80,6 @@ class RankedPost(BaseModel):
     title: str
     url: str
     summary: str
+    importance_score: float = 0.0
+    reasoning: str = ""
+    discussion_status: str = ""
