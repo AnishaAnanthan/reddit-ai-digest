@@ -34,6 +34,7 @@ def _extract_comment_nodes(node: dict) -> list[dict]:
     return extracted
 
 
+
 async def fetch_comments_for_post(post_id: str, subreddit: str) -> list[CommentRecord]:
     """
     Fetches the top comments for a given Reddit post using the public JSON API.

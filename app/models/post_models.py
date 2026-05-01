@@ -80,6 +80,7 @@ class RankedPost(BaseModel):
     title: str
     url: str
     summary: str
+    subreddit: str = ""
     importance_score: float = 0.0
     reasoning: str = ""
     discussion_status: str = ""

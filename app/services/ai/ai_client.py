@@ -23,7 +23,7 @@ class AIClient:
         logger.info(f"Payload size: system_prompt={len(system_prompt)} chars, user_content={len(user_content)} chars")
         start = time.time()
         try:
-            logger.info("Attempting chat completion...")
+            logger.info("Attempting to call openai...")
             response = await self.client.chat.completions.create(
                 model=model,
                 messages=[

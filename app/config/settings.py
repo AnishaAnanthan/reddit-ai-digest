@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Email config
     EMAIL_USER: str = ""
     EMAIL_PASS: str = ""
-    EMAIL_RECEIVER: str = "anishaak06@gmail.com, jeevaneniyavan@gmail.com,kayal@qonfido.com"
+    EMAIL_RECEIVER: str = "anishaak06@gmail.com, jeevaneniyavan@gmail.com,kayal@qonfido.com,vasant@qonfido.com,vikram@qonfido.com,gehna@qonfido.com"
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent.parent / ".env",

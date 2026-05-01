@@ -53,6 +53,9 @@ async def rank_subreddit_posts(subreddit: str, posts: list[RawPost]) -> list[Ran
 
         if parsed is not None:
             # We no longer slice [:3] here, we return what the AI ranked as important
+            # Inject subreddit name for each post
+            for item in parsed:
+                item["subreddit"] = subreddit
             return [RankedPost(**item) for item in parsed]
 
         logger.warning(

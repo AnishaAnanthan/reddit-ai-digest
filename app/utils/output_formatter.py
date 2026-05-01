@@ -27,7 +27,7 @@ def format_top_posts_text(posts: list[RankedPost]) -> str:
     ]
 
     for idx, post in enumerate(posts, start=1):
-        lines.append(f"{idx}. {post.title}")
+        lines.append(f"{idx}. {post.title} [r/{post.subreddit}]")
         lines.append(f"   [Importance Score: {post.importance_score}/10.0] | [Status: {post.discussion_status}]")
         lines.append(f"   URL: {post.url}")
         lines.append(f"   Reasoning: {post.reasoning}")
