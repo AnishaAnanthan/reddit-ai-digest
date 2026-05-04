@@ -20,28 +20,36 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup: Initialize and start scheduler
     scheduler = AsyncIOScheduler()
-
-    # Parse the times from settings (format HH:MM,HH:MM,HH:MM)
-    times = settings.PIPELINE_SCHEDULE_TIME.split(",")
-    for t in times:
-        try:
-            hour, minute = map(int, t.strip().split(":"))
-            scheduler.add_job(
-                run_full_ranking_pipeline,
-                "cron",
-                hour=hour,
-                minute=minute,
-                id=f"reddit_ranking_job_{hour}_{minute}"
-            )
-            logger.info(f">>> Pipeline scheduled to run daily at {t.strip()}")
-        except Exception as e:
-            logger.error(f">>> Failed to schedule pipeline for time {t}: {e}")
     
-    scheduler.start()
+    try:
+        # Parse the times from settings (format HH:MM,HH:MM,HH:MM)
+        times = settings.PIPELINE_SCHEDULE_TIME.split(",")
+        for t in times:
+            try:
+                hour, minute = map(int, t.strip().split(":"))
+                scheduler.add_job(
+                    run_full_ranking_pipeline,
+                    "cron",
+                    hour=hour,
+                    minute=minute,
+                    id=f"reddit_ranking_job_{hour}_{minute}"
+                )
+                logger.info(f">>> Pipeline scheduled to run daily at {t.strip()}")
+            except Exception as e:
+                logger.error(f">>> Failed to schedule pipeline for time {t}: {e}")
+        
+        scheduler.start()
+        logger.info(">>> Scheduler started successfully")
+    except Exception as e:
+        logger.error(f">>> Failed to initialize scheduler: {e}", exc_info=True)
 
     yield
     # Shutdown
-    scheduler.shutdown()
+    try:
+        scheduler.shutdown()
+        logger.info(">>> Scheduler shut down successfully")
+    except Exception as e:
+        logger.error(f">>> Failed to shutdown scheduler: {e}")
 
 app = FastAPI(
     title="Reddit AI Agent v2",
