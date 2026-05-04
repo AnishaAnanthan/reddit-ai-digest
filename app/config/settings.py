@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     STAGE1_TOTAL_COMMENT_CHAR_BUDGET: int = 1800
     
     # Schedule config (comma-separated HH:MM)
-    PIPELINE_SCHEDULE_TIME: str = "08:00,12:00,18:00"
+    PIPELINE_SCHEDULE_TIME: str = "08:00,12:00,14:00,15:00,18:00"
 
     # OpenAI config
     OPENAI_API_KEY: str = ""

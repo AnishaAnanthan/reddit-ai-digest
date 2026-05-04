@@ -31,7 +31,8 @@ def send_results_email(body: str) -> None:
 
     for attempt in range(3):
         try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30, context=ssl_context) as server:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+                server.starttls(context=ssl_context)
                 server.login(settings.EMAIL_USER, settings.EMAIL_PASS)
                 server.sendmail(settings.EMAIL_USER, receivers, message.as_string())
             logger.info("Email sent successfully to %s.", ", ".join(receivers))
