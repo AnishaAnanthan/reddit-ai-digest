@@ -24,20 +24,23 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize and start scheduler
     scheduler = AsyncIOScheduler()
     
-    # Parse the time from settings (format HH:MM)
-    try:
-        hour, minute = map(int, settings.PIPELINE_SCHEDULE_TIME.split(":"))
-        scheduler.add_job(
-            run_full_ranking_pipeline,
-            "cron",
-            hour=hour,
-            minute=minute,
-            id="reddit_ranking_job"
-        )
-        scheduler.start()
-        logger.info(f">>> Pipeline scheduled to run daily at {settings.PIPELINE_SCHEDULE_TIME}")
-    except Exception as e:
-        logger.error(f">>> Failed to schedule pipeline: {e}")
+    # Parse the times from settings (format HH:MM,HH:MM,HH:MM)
+    times = settings.PIPELINE_SCHEDULE_TIME.split(",")
+    for t in times:
+        try:
+            hour, minute = map(int, t.strip().split(":"))
+            scheduler.add_job(
+                run_full_ranking_pipeline,
+                "cron",
+                hour=hour,
+                minute=minute,
+                id=f"reddit_ranking_job_{hour}_{minute}"
+            )
+            logger.info(f">>> Pipeline scheduled to run daily at {t.strip()}")
+        except Exception as e:
+            logger.error(f">>> Failed to schedule pipeline for time {t}: {e}")
+    
+    scheduler.start()
 
     yield
     # Shutdown
