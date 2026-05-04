@@ -2,6 +2,7 @@ from fastapi import FastAPI, Response
 import logging
 import time
 import asyncio
+from zoneinfo import ZoneInfo
 from app.services.reddit.fetch_posts import fetch_top_posts
 from app.services.ai.stage2_subreddit_ranker import rank_subreddit_posts
 from app.services.pipeline_service import run_full_ranking_pipeline
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize and start scheduler
-    scheduler = AsyncIOScheduler()
+    scheduler = AsyncIOScheduler(timezone=ZoneInfo("Asia/Kolkata"))
     
     try:
         # Parse the times from settings (format HH:MM,HH:MM,HH:MM)
