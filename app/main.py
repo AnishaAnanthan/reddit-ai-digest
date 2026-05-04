@@ -150,6 +150,18 @@ async def test_format():
     formatted_text = format_top_posts_text(ranked)
     return Response(content=formatted_text, media_type="text/plain")
 
+
+@app.get("/test/sendgrid")
+async def test_sendgrid():
+    """Trigger a test email using SendGrid (or SMTP fallback)."""
+    test_body = f"Test email from Reddit AI Agent. Timestamp: {time.time()}"
+    try:
+        # run send_results_email (sync) in a thread
+        await asyncio.to_thread(send_results_email, test_body)
+        return {"status": "queued", "message": "Test email sent (or queued)."}
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
+
 @app.get("/test/raw-count")
 async def test_raw_count():
     raw_posts = await fetch_top_posts()
