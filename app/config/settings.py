@@ -1,6 +1,7 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+from pydantic import field_validator
 
 class Settings(BaseSettings):
     # Reddit config
@@ -34,6 +35,19 @@ class Settings(BaseSettings):
         env_file=Path(__file__).resolve().parent.parent.parent / ".env",
         extra="ignore"
     )
+
+    @field_validator("SUBREDDITS", mode="before")
+    @classmethod
+    def parse_subreddits(cls, value):
+        if value is None:
+            return value
+        if isinstance(value, str):
+            value = value.strip()
+            if value.startswith("["):
+                import json
+                return json.loads(value)
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
 
 settings = Settings()
